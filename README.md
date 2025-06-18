@@ -19,15 +19,12 @@ This Google Cloud Function dynamically generates iCalendar `.ics` links for list
 
 Generates a new `.ics` link for a given listing.
 
-**Request & Response:**
-
 ```json
-// Request
 {
-  "listing_id": "abc123"
-}
-
-// Response
-{
-  "ical_link": "https://www.kampsync.com/api/AbcD0Fic3aXjKmoo.ics"
+  "request": {
+    "listing_id": "abc123"
+  },
+  "response": {
+    "ical_link": "https://www.kampsync.com/api/AbcD0Fic3aXjKmoo.ics"
+  }
 }
