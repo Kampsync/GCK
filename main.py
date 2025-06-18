@@ -1,5 +1,3 @@
-# main.py
-
 import os
 import uuid
 import requests
@@ -8,7 +6,8 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-XANO_API_BASE = os.getenv("XANO_API_BASE")
+XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")      # GET listing/:id
+XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")  # PATCH listing/:id
 
 
 def generate_token():
@@ -53,22 +52,23 @@ def generate_ical():
     if not listing_id:
         return jsonify({"error": "Missing listing_id"}), 400
 
-    # Fetch listing data
+    # Fetch listing from Xano GET base
     try:
-        listing = requests.get(f"{XANO_API_BASE}/listings/{listing_id}").json()
+        listing_url = f"{XANO_API_GET_BASE}/{listing_id}"
+        listing = requests.get(listing_url).json()
     except Exception as e:
         return jsonify({"error": f"Failed to fetch listing: {str(e)}"}), 500
 
-    # Generate and assign token
+    # Generate token
     token = generate_token()
 
-    # Save token to listing
+    # Save token to listing via PATCH
     try:
-        requests.patch(f"{XANO_API_BASE}/listings/{listing_id}", json={"ical_token": token})
+        patch_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
+        requests.patch(patch_url, json={"ical_token": token})
     except Exception as e:
         return jsonify({"error": f"Failed to update Xano: {str(e)}"}), 500
 
-    # Return permanent URL
     ical_url = f"https://www.kampsync.com/api/{token}.ics"
     return jsonify({"ical_link": ical_url})
 
@@ -76,7 +76,8 @@ def generate_ical():
 @app.route("/api/<token>.ics", methods=["GET"])
 def get_ical(token):
     try:
-        response = requests.get(f"{XANO_API_BASE}/listings", params={"ical_token": token})
+        query_url = f"{XANO_API_GET_BASE}?ical_token={token}"
+        response = requests.get(query_url)
         listings = response.json()
 
         if not listings:
@@ -88,7 +89,6 @@ def get_ical(token):
         return f"Error: {str(e)}", 500
 
 
-# Required for Cloud Run
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
