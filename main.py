@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")      # GET listing/:id
-XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")  # PATCH listing/:id
+XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")      # GET listing/:id or with token param
+XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")  # POST to save ical link + listing_id
 
 
 def generate_token():
@@ -26,7 +26,7 @@ def create_ics(listing):
     dtstart = now.strftime("%Y%m%dT%H%M%SZ")
     dtend = end.strftime("%Y%m%dT%H%M%SZ")
 
-    ical = f"""BEGIN:VCALENDAR
+    return f"""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Kampsync//EN
 CALSCALE:GREGORIAN
@@ -41,35 +41,34 @@ DTEND:{dtend}
 END:VEVENT
 END:VCALENDAR
 """
-    return ical
 
 
 @app.route("/generate", methods=["POST"])
 def generate_ical():
     data = request.get_json()
     listing_id = data.get("listing_id")
-
     if not listing_id:
         return jsonify({"error": "Missing listing_id"}), 400
 
-    # Fetch listing from Xano GET base
     try:
         listing_url = f"{XANO_API_GET_BASE}/{listing_id}"
         listing = requests.get(listing_url).json()
     except Exception as e:
         return jsonify({"error": f"Failed to fetch listing: {str(e)}"}), 500
 
-    # Generate token
     token = generate_token()
-
-    # Save token to listing via PATCH
-    try:
-        patch_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
-        requests.patch(patch_url, json={"ical_token": token})
-    except Exception as e:
-        return jsonify({"error": f"Failed to update Xano: {str(e)}"}), 500
-
     ical_url = f"https://www.kampsync.com/api/{token}.ics"
+
+    # Save full iCal URL using POST to patch base
+    try:
+        payload = {
+            "listing_id": listing_id,
+            "kampsync_ical_link": ical_url
+        }
+        requests.post(XANO_API_PATCH_BASE, json=payload)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save iCal link: {str(e)}"}), 500
+
     return jsonify({"ical_link": ical_url})
 
 
