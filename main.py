@@ -2,45 +2,27 @@ import os
 import uuid
 import requests
 from flask import Flask, request, jsonify, Response
-from datetime import datetime, timedelta
+from ics import Calendar
+from datetime import datetime
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")      # GET listing/:id or with token param
-XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")  # POST to save ical link + listing_id
+XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")
+XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")
 
 
 def generate_token():
     return uuid.uuid4().hex[:24]
 
 
-def create_ics(listing):
-    now = datetime.utcnow()
-    end = now + timedelta(hours=1)
-
-    uid = listing.get("ical_token", generate_token())
-    summary = listing.get("title", "Booking")
-    location = listing.get("location", "")
-    description = listing.get("description", "")
-    dtstamp = now.strftime("%Y%m%dT%H%M%SZ")
-    dtstart = now.strftime("%Y%m%dT%H%M%SZ")
-    dtend = end.strftime("%Y%m%dT%H%M%SZ")
-
-    return f"""BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Kampsync//EN
-CALSCALE:GREGORIAN
-BEGIN:VEVENT
-UID:{uid}
-SUMMARY:{summary}
-DESCRIPTION:{description}
-LOCATION:{location}
-DTSTAMP:{dtstamp}
-DTSTART:{dtstart}
-DTEND:{dtend}
-END:VEVENT
-END:VCALENDAR
-"""
+def fetch_calendar(url: str):
+    try:
+        res = requests.get(url)
+        if res.status_code == 200:
+            return Calendar(res.text)
+    except Exception:
+        pass
+    return None
 
 
 @app.route("/generate", methods=["POST"])
@@ -57,13 +39,14 @@ def generate_ical():
         return jsonify({"error": f"Failed to fetch listing: {str(e)}"}), 500
 
     token = generate_token()
-    ical_url = f"https://www.kampsync.com/api/{token}.ics"
+    ical_url = f"https://api.kampsync.com/v1/ical/{token}"
 
-    # Save full iCal URL using POST to patch base
+    # Save link to Xano
     try:
         payload = {
             "listing_id": listing_id,
-            "kampsync_ical_link": ical_url
+            "kampsync_ical_link": ical_url,
+            "ical_token": token
         }
         requests.post(XANO_API_PATCH_BASE, json=payload)
     except Exception as e:
@@ -72,18 +55,35 @@ def generate_ical():
     return jsonify({"ical_link": ical_url})
 
 
-@app.route("/api/<token>.ics", methods=["GET"])
+@app.route("/v1/ical/<token>", methods=["GET"])
 def get_ical(token):
     try:
         query_url = f"{XANO_API_GET_BASE}?ical_token={token}"
         response = requests.get(query_url)
         listings = response.json()
-
         if not listings:
             return "Calendar not found", 404
 
-        ical_data = create_ics(listings[0])
-        return Response(ical_data, mimetype="text/calendar")
+        listing = listings[0]
+        ical_sources = [
+            listing.get("rvshare_ical_link"),
+            listing.get("outdoorsy_ical_link"),
+            listing.get("airbnb_ical_link"),
+            listing.get("rvezy_ical_link"),
+            listing.get("hipcamp_ical_link"),
+            listing.get("camplify_ical_link"),
+            listing.get("yescapa_ical_link")
+        ]
+
+        calendar = Calendar()
+        for url in filter(None, ical_sources):
+            fetched = fetch_calendar(url)
+            if fetched:
+                for event in fetched.events:
+                    calendar.events.add(event)
+
+        return Response(str(calendar), mimetype="text/calendar")
+
     except Exception as e:
         return f"Error: {str(e)}", 500
 
