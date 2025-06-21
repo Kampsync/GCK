@@ -2,12 +2,12 @@ import os
 import uuid
 import requests
 from flask import Flask, request, jsonify, Response
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")      # GET listing/:id or with token param
-XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")  # POST to save ical link + listing_id
+XANO_API_GET_BASE = os.getenv("XANO_API_GET_BASE")
+XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")
 
 
 def generate_token():
@@ -15,32 +15,41 @@ def generate_token():
 
 
 def create_ics(listing):
-    now = datetime.utcnow()
-    end = now + timedelta(hours=1)
-
-    uid = listing.get("ical_token", generate_token())
-    summary = listing.get("title", "Booking")
+    title = listing.get("title", "Kampsync Listing")
     location = listing.get("location", "")
     description = listing.get("description", "")
-    dtstamp = now.strftime("%Y%m%dT%H%M%SZ")
-    dtstart = now.strftime("%Y%m%dT%H%M%SZ")
-    dtend = end.strftime("%Y%m%dT%H%M%SZ")
+    bookings = listing.get("bookings", [])
 
-    return f"""BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Kampsync//EN
-CALSCALE:GREGORIAN
-BEGIN:VEVENT
-UID:{uid}
-SUMMARY:{summary}
-DESCRIPTION:{description}
-LOCATION:{location}
-DTSTAMP:{dtstamp}
-DTSTART:{dtstart}
-DTEND:{dtend}
-END:VEVENT
-END:VCALENDAR
-"""
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Kampsync//EN",
+        "CALSCALE:GREGORIAN"
+    ]
+
+    for booking in bookings:
+        try:
+            dtstart = datetime.fromisoformat(booking["start"].replace("Z", "+00:00")).strftime("%Y%m%dT%H%M%SZ")
+            dtend = datetime.fromisoformat(booking["end"].replace("Z", "+00:00")).strftime("%Y%m%dT%H%M%SZ")
+            uid = uuid.uuid4().hex
+            dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
+            lines += [
+                "BEGIN:VEVENT",
+                f"UID:{uid}",
+                f"SUMMARY:{title}",
+                f"DESCRIPTION:{description}",
+                f"LOCATION:{location}",
+                f"DTSTAMP:{dtstamp}",
+                f"DTSTART:{dtstart}",
+                f"DTEND:{dtend}",
+                "END:VEVENT"
+            ]
+        except Exception:
+            continue
+
+    lines.append("END:VCALENDAR")
+    return "\n".join(lines)
 
 
 @app.route("/generate", methods=["POST"])
@@ -86,7 +95,7 @@ def get_ical(token):
         ical_data = create_ics(listing)
         return Response(ical_data, mimetype="text/calendar")
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return Response(f"Error: {str(e)}", status=500)
 
 
 if __name__ == "__main__":
