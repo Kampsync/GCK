@@ -87,14 +87,13 @@ def generate_ical():
 @app.route("/v1/ical/<token>", methods=["GET"])
 def get_ical(token):
     try:
-        query_url = f"{XANO_API_GET_BASE}?ical_token={token}"
-        response = requests.get(query_url)
+        response = requests.get(XANO_API_GET_BASE)
         listings = response.json()
 
-        if not listings:
+        listing = next((l for l in listings if l.get("ical_token") == token), None)
+        if not listing:
             return "Calendar not found", 404
 
-        listing = listings[0]
         ical_data = create_ics(listing)
         return Response(ical_data, mimetype="text/calendar")
     except Exception as e:
