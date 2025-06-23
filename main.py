@@ -60,8 +60,11 @@ def generate_ical():
         return jsonify({"error": "Missing listing_id"}), 400
 
     try:
-        listing_url = f"{XANO_API_GET_BASE}/{listing_id}"
-        listing = requests.get(listing_url).json()
+        query_url = f"{XANO_API_GET_BASE}?id={listing_id}"
+        listing_data = requests.get(query_url).json()
+        if not listing_data:
+            return jsonify({"error": "Listing not found"}), 404
+        listing = listing_data[0]
     except Exception as e:
         return jsonify({"error": f"Failed to fetch listing: {str(e)}"}), 500
 
@@ -86,19 +89,14 @@ def get_ical(token):
     try:
         query_url = f"{XANO_API_GET_BASE}?ical_token={token}"
         response = requests.get(query_url)
-
-        try:
-            listings = response.json()
-        except Exception as json_err:
-            return Response(f"Xano returned invalid JSON:\n{response.text}", status=502, mimetype="text/plain")
+        listings = response.json()
 
         if not listings:
-            return Response("Calendar not found", status=404)
+            return "Calendar not found", 404
 
         listing = listings[0]
         ical_data = create_ics(listing)
         return Response(ical_data, mimetype="text/calendar")
-
     except Exception as e:
         return Response(f"Error: {str(e)}", status=500)
 
