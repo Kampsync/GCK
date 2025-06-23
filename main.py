@@ -86,14 +86,19 @@ def get_ical(token):
     try:
         query_url = f"{XANO_API_GET_BASE}?ical_token={token}"
         response = requests.get(query_url)
-        listings = response.json()
+
+        try:
+            listings = response.json()
+        except Exception as json_err:
+            return Response(f"Xano returned invalid JSON:\n{response.text}", status=502, mimetype="text/plain")
 
         if not listings:
-            return "Calendar not found", 404
+            return Response("Calendar not found", status=404)
 
         listing = listings[0]
         ical_data = create_ics(listing)
         return Response(ical_data, mimetype="text/calendar")
+
     except Exception as e:
         return Response(f"Error: {str(e)}", status=500)
 
