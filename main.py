@@ -5,30 +5,34 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-XANO_API_PATCH_BASE = os.getenv("XANO_API_PATCH_BASE")
+# Load Xano base URL from environment variable
+XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
 
-def generate_token():
-    return uuid.uuid4().hex[:24]
-
-@app.route("/generate", methods=["POST"])
+@app.route("/generate-ical", methods=["POST"])
 def generate_ical():
-    data = request.get_json()
+    data = request.json
     listing_id = data.get("listing_id")
-    if not listing_id:
-        return jsonify({"error": "Missing listing_id"}), 400
 
-    token = generate_token()
-    ical_url = f"https://api.kampsync.com/v1/ical/{token}"
+    if not listing_id:
+        return jsonify({"error": "listing_id is required"}), 400
+
+    # Generate a unique iCal ID and link
+    ical_id = str(uuid.uuid4())
+    ical_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
+
+    # Patch it into Xano
+    xano_patch_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
+    payload = {
+        "kampsync_ical_link": ical_link
+    }
 
     try:
-        payload = {
-            "listing_id": listing_id,
-            "kampsync_ical_link": ical_url,
-            "ical_token": token
-        }
-        response = requests.post(XANO_API_PATCH_BASE, json=payload)
-        response.raise_for_status()
-    except Exception as e:
-        return jsonify({"error": f"Failed to save iCal link: {str(e)}"}), 500
+        res = requests.patch(xano_patch_url, json=payload)
+        res.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
-    return jsonify({"ical_link": ical_url})
+    return jsonify({
+        "listing_id": listing_id,
+        "kampsync_ical_link": ical_link
+    }), 200
