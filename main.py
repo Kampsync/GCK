@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
 
-@app.route("/create-kampsync-ical", methods=["POST"])
+@app.route("/generate", methods=["POST"])  # <-- Route matches your curl
 def create_kampsync_ical():
     data = request.get_json()
     if not data or "listing_id" not in data or "ical_id" not in data:
