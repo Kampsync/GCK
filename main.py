@@ -14,14 +14,9 @@ def generate_ical_link():
         return jsonify({"error": "Missing 'listing_id' in request body"}), 400
 
     listing_id = data["listing_id"]
-
-    # ✅ Step 1: Generate a random token
     ical_id = uuid.uuid4().hex
-
-    # ✅ Step 2: Build the final iCal URL
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-    # ✅ Step 3: Send to Xano
     payload = {
         "listing_id": listing_id,
         "kampsync_ical_link": ical_url
