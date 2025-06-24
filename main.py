@@ -5,7 +5,7 @@ import requests
 
 app = Flask(__name__)
 
-XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE") 
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -18,7 +18,6 @@ def generate_ical_link():
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
     payload = {
-        "listing_id": listing_id,
         "kampsync_ical_link": ical_url
     }
 
@@ -27,15 +26,15 @@ def generate_ical_link():
     }
 
     try:
-        xano_response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
+        # Inject the listing_id into the PATCH URL
+        xano_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
 
-        # Handle response more gracefully
+        xano_response = requests.patch(xano_url, json=payload, headers=headers)
+
         if 200 <= xano_response.status_code < 300:
             return jsonify({
                 "message": "Successfully updated listing in Xano",
-                "ical_url": ical_url,
-                "xano_status": xano_response.status_code,
-                "xano_response": xano_response.text
+                "ical_url": ical_url
             }), 200
         else:
             return jsonify({
