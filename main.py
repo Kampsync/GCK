@@ -1,3 +1,12 @@
+import os
+import uuid
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
     data = request.get_json()
@@ -20,11 +29,17 @@ def generate_ical_link():
     try:
         response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
 
+        # Return full info regardless of success for debugging
         return jsonify({
+            "success": response.ok,
             "ical_url": ical_url,
-            "xano_status_code": response.status_code,
-            "xano_response_text": response.text
-        }), 200
+            "xano_status": response.status_code,
+            "xano_response": response.text
+        }), 200 if response.ok else 500
 
     except requests.RequestException as e:
-        return jsonify({"error": "Unable to connect to Xano", "details": str(e)}), 500
+        return jsonify({"error": "Xano request failed", "details": str(e)}), 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
