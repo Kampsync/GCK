@@ -17,8 +17,8 @@ def generate_ical_link():
     ical_id = uuid.uuid4().hex
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-    patch_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
     payload = {
+        "listing_id": listing_id,
         "kampsync_ical_link": ical_url
     }
 
@@ -27,21 +27,15 @@ def generate_ical_link():
     }
 
     try:
-        xano_response = requests.patch(patch_url, json=payload, headers=headers)
+        response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
 
-        if 200 <= xano_response.status_code < 300:
-            return jsonify({
-                "ical_url": ical_url
-            }), 200
+        if 200 <= response.status_code < 300:
+            return jsonify({ "ical_url": ical_url }), 200
         else:
-            return jsonify({
-                "error": "Xano responded with an error",
-                "status_code": xano_response.status_code,
-                "xano_response": xano_response.text
-            }), xano_response.status_code
+            return jsonify({ "error": "Failed to update listing in Xano" }), 500
 
-    except requests.RequestException as e:
-        return jsonify({"error": "Failed to update Xano", "details": str(e)}), 500
+    except requests.RequestException:
+        return jsonify({ "error": "Unable to connect to Xano" }), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
