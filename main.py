@@ -1,38 +1,38 @@
 import os
-import uuid
-import requests
 from flask import Flask, request, jsonify
+import requests
 
 app = Flask(__name__)
 
-# Load Xano base URL from environment variable
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
 
-@app.route("/generate-ical", methods=["POST"])
-def generate_ical():
-    data = request.json
-    listing_id = data.get("listing_id")
+@app.route("/create-kampsync-ical", methods=["POST"])
+def create_kampsync_ical():
+    data = request.get_json()
+    if not data or "listing_id" not in data or "ical_id" not in data:
+        return jsonify({"error": "Missing 'listing_id' or 'ical_id' in request body"}), 400
 
-    if not listing_id:
-        return jsonify({"error": "listing_id is required"}), 400
+    listing_id = data["listing_id"]
+    ical_id = data["ical_id"]
 
-    # Generate a unique iCal ID and link
-    ical_id = str(uuid.uuid4())
-    ical_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
+    ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-    # Patch it into Xano
-    xano_patch_url = f"{XANO_API_PATCH_BASE}/{listing_id}"
     payload = {
-        "kampsync_ical_link": ical_link
+        "listing_id": listing_id,
+        "kampsync_ical_link": ical_url
+    }
+
+    headers = {
+        "Content-Type": "application/json"
     }
 
     try:
-        res = requests.patch(xano_patch_url, json=payload)
-        res.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+        xano_response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
+        xano_response.raise_for_status()
+        return jsonify({"message": "Successfully updated listing in Xano", "ical_url": ical_url}), 200
+    except requests.RequestException as e:
+        return jsonify({"error": "Failed to update Xano", "details": str(e)}), 500
 
-    return jsonify({
-        "listing_id": listing_id,
-        "kampsync_ical_link": ical_link
-    }), 200
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
