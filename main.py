@@ -28,17 +28,9 @@ def generate_ical_link():
 
     try:
         response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
-
-        # Show full info regardless of result
-        return jsonify({
-            "success": response.ok,
-            "ical_url": ical_url,
-            "xano_status": response.status_code,
-            "xano_response": response.text
-        }), 200 if response.ok else 500
-
-    except requests.RequestException as e:
-        return jsonify({ "error": "Unable to connect to Xano", "details": str(e) }), 500
+        return jsonify({ "ical_url": ical_url }), 200
+    except requests.RequestException:
+        return jsonify({ "error": "Unable to connect to Xano" }), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
