@@ -1,11 +1,18 @@
 import os
 import uuid
+import threading
 from flask import Flask, request, jsonify
 import requests
 
 app = Flask(__name__)
 
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+
+def async_patch(payload, headers):
+    try:
+        requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
+    except requests.RequestException:
+        pass  # fail silently
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -28,11 +35,10 @@ def generate_ical_link():
         "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
-        return jsonify({"ical_url": ical_url}), 200
-    except requests.RequestException:
-        return jsonify({"error": "Unable to connect to Xano"}), 500
+    # Launch patch in a separate thread so we return immediately
+    threading.Thread(target=async_patch, args=(payload, headers)).start()
+
+    return jsonify({"ical_url": ical_url}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
