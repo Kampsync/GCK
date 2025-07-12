@@ -9,7 +9,9 @@ XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
-    data = request.get_json()
+    # Accept either JSON or form data from Xano
+    data = request.get_json(silent=True) or request.form
+
     if not data or "listing_id" not in data:
         return jsonify({"error": "Missing 'listing_id' in request body"}), 400
 
@@ -19,6 +21,7 @@ def generate_ical_link():
 
     payload = {
         "listing_id": listing_id,
+        "kampsync_ical_link": ical_url
     }
 
     headers = {
@@ -27,9 +30,9 @@ def generate_ical_link():
 
     try:
         response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
-        return jsonify({ "ical_url": ical_url }), 200
+        return jsonify({"ical_url": ical_url}), 200
     except requests.RequestException:
-        return jsonify({ "error": "Unable to connect to Xano" }), 500
+        return jsonify({"error": "Unable to connect to Xano"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
