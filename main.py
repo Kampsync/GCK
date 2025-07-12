@@ -19,7 +19,6 @@ def generate_ical_link():
 
     payload = {
         "listing_id": listing_id,
-        "kampsync_ical_link": ical_url
     }
 
     headers = {
