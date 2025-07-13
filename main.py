@@ -5,8 +5,11 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-XANO_API_GET_LISTING_BASE = os.environ.get("XANO_API_GET_LISTING_BASE")  # your Listings DB endpoint base
-XANO_API_PATCH_EVENTS_URL = os.environ.get("XANO_API_PATCH_EVENTS_URL")  # static booking_events_1 URL
+XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")
+XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+
+print("DEBUG ENV: XANO_API_GET_BASE =", XANO_API_GET_BASE)
+print("DEBUG ENV: XANO_API_PATCH_BASE =", XANO_API_PATCH_BASE)
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -17,8 +20,9 @@ def generate_ical_link():
     listing_id = str(data["listing_id"])
 
     try:
-        # Always pull the record from Listings table
-        get_url = f"{XANO_API_GET_LISTING_BASE}{listing_id}"
+        # GET the listing record
+        get_url = f"{XANO_API_GET_BASE}{listing_id}"
+        print("DEBUG GET URL:", get_url)
         get_response = requests.get(get_url)
         get_response.raise_for_status()
         record = get_response.json()
@@ -35,23 +39,26 @@ def generate_ical_link():
         if not render_link or not render_link.strip():
             return jsonify({"error": "Missing 'ical_data_render' in Listings record"}), 400
 
+        # If already exists, return it
         if existing_link and isinstance(existing_link, str) and existing_link.strip():
+            print("DEBUG Existing kampsync_ical_link found:", existing_link)
             return jsonify({
                 "ical_url": existing_link,
                 "backing_render_link": render_link
             }), 200
 
-        # Generate new KampSync style link
+        # Otherwise, create new permanent link
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
+        print("DEBUG New kampsync_link:", kampsync_link)
 
-        # Patch to static booking_events_1
-        patch_payload = {
-            "kampsync_ical_link": kampsync_link
-        }
+        # PATCH the same listing record
+        patch_url = f"{XANO_API_PATCH_BASE}{listing_id}"
+        print("DEBUG PATCH URL:", patch_url)
+        patch_payload = {"kampsync_ical_link": kampsync_link}
 
         patch_response = requests.patch(
-            XANO_API_PATCH_EVENTS_URL,
+            patch_url,
             json=patch_payload,
             headers={"Content-Type": "application/json"}
         )
@@ -63,6 +70,7 @@ def generate_ical_link():
         }), 201
 
     except requests.RequestException as e:
+        print("DEBUG Exception:", str(e))
         return jsonify({"error": f"Failed to process: {str(e)}"}), 500
 
 if __name__ == "__main__":
