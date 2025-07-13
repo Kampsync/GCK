@@ -26,21 +26,22 @@ def generate_ical_link():
             record = record[0] if record else {}
 
         if not isinstance(record, dict):
-            return jsonify({"error": "Invalid record format"}), 500
+            return jsonify({"error": "Invalid record format from Xano"}), 500
 
         existing_link = record.get("kampsync_ical_link")
         render_link = record.get("ical_data_render")
 
+        # Ensure we have a render link to ultimately point to
         if not render_link or not render_link.strip():
-            return jsonify({"error": "No Render link found in Xano"}), 400
+            return jsonify({"error": "Missing 'ical_data_render' link in Xano record"}), 400
 
         # If already exists, just return it
         if existing_link and isinstance(existing_link, str) and existing_link.strip():
             return jsonify({"ical_url": existing_link}), 200
 
-        # Otherwise create a new pretty KampSync link
+        # Otherwise create new KampSync style link with UUID
         ical_id = uuid.uuid4().hex
-        kampsync_link = f"https://calendar.kampsync.com/listings/{ical_id}.ics"
+        kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
         patch_payload = {
             "listing_id": listing_id,
@@ -54,7 +55,10 @@ def generate_ical_link():
         )
         patch_response.raise_for_status()
 
-        return jsonify({"ical_url": kampsync_link, "backing_render_link": render_link}), 201
+        return jsonify({
+            "ical_url": kampsync_link,
+            "backing_render_link": render_link
+        }), 201
 
     except requests.RequestException as e:
         return jsonify({"error": f"Failed to process listing: {str(e)}"}), 500
