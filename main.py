@@ -34,18 +34,11 @@ def generate_ical_link():
             return jsonify({"error": "Invalid Listings record format"}), 500
 
         existing_link = record.get("kampsync_ical_link")
-        render_link = record.get("ical_data_render")
-
-        if not render_link or not render_link.strip():
-            return jsonify({"error": "Missing 'ical_data_render' in Listings record"}), 400
 
         # If already exists, return it
         if existing_link and isinstance(existing_link, str) and existing_link.strip():
             print("DEBUG Existing kampsync_ical_link found:", existing_link)
-            return jsonify({
-                "ical_url": existing_link,
-                "backing_render_link": render_link
-            }), 200
+            return jsonify({"ical_url": existing_link}), 200
 
         # Otherwise, create new permanent link
         ical_id = uuid.uuid4().hex
@@ -64,10 +57,7 @@ def generate_ical_link():
         )
         patch_response.raise_for_status()
 
-        return jsonify({
-            "ical_url": kampsync_link,
-            "backing_render_link": render_link
-        }), 201
+        return jsonify({"ical_url": kampsync_link}), 201
 
     except requests.RequestException as e:
         print("DEBUG Exception:", str(e))
