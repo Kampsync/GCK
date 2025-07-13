@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from "uuid";
 const app = express();
 app.use(express.json());
 
-const XANO_API_GET_BASE = process.env.XANO_API_GET_BASE;    // e.g. https://xano/api:booking_events_1
-const XANO_API_PATCH_BASE = process.env.XANO_API_PATCH_BASE; // same style
+const XANO_API_GET_BASE = process.env.XANO_API_GET_BASE;
+const XANO_API_PATCH_BASE = process.env.XANO_API_PATCH_BASE;
 
 app.post("/generate-ical", async (req, res) => {
   const listing_id = req.query.listing_id;
@@ -45,6 +45,7 @@ app.post("/generate-ical", async (req, res) => {
     return res.status(201).json({ ical_url: kampsyncLink });
 
   } catch (err) {
+    console.error("ERROR:", err.message);
     return res
       .status(500)
       .json({ ical_url: `ERROR: ${err.message || "unknown error"}` });
