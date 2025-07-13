@@ -14,11 +14,12 @@ def generate_ical_link():
     if not data or "listing_id" not in data:
         return jsonify({"error": "Missing 'listing_id' in request body"}), 400
 
-    listing_id = data["listing_id"]
+    listing_id = str(data["listing_id"])
 
     try:
-        # Get the record from Xano
-        get_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
+        # GET the record from Listings
+        get_url = f"{XANO_API_GET_BASE}{listing_id}"
+        get_response = requests.get(get_url)
         get_response.raise_for_status()
         record = get_response.json()
 
@@ -31,25 +32,28 @@ def generate_ical_link():
         existing_link = record.get("kampsync_ical_link")
         render_link = record.get("ical_data_render")
 
-        # Ensure we have a render link to ultimately point to
         if not render_link or not render_link.strip():
             return jsonify({"error": "Missing 'ical_data_render' link in Xano record"}), 400
 
-        # If already exists, just return it
+        # If already exists, return it (never overwrites)
         if existing_link and isinstance(existing_link, str) and existing_link.strip():
-            return jsonify({"ical_url": existing_link}), 200
+            return jsonify({
+                "ical_url": existing_link,
+                "backing_render_link": render_link
+            }), 200
 
-        # Otherwise create new KampSync style link with UUID
+        # Create new KampSync style link with UUID
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        # PATCH payload should just be the updated fields
+        # PATCH it to this listing_id
+        patch_url = f"{XANO_API_PATCH_BASE}{listing_id}"
         patch_payload = {
             "kampsync_ical_link": kampsync_link
         }
 
         patch_response = requests.patch(
-            f"{XANO_API_PATCH_BASE}{listing_id}",
+            patch_url,
             json=patch_payload,
             headers={"Content-Type": "application/json"}
         )
