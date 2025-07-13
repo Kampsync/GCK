@@ -18,22 +18,28 @@ app.post("/generate-ical", async (req, res) => {
   try {
     let existingLink = null;
 
+    // GET existing kampsync_ical_link from Xano
     if (XANO_API_GET_BASE) {
       const getUrl = `${XANO_API_GET_BASE}?listing_id=${listing_id}`;
       const getResponse = await axios.get(getUrl);
-      const record = Array.isArray(getResponse.data)
-        ? getResponse.data[0] || {}
-        : getResponse.data;
-      existingLink = record.kampsync_ical_link;
+
+      if (Array.isArray(getResponse.data)) {
+        existingLink = getResponse.data[0]?.kampsync_ical_link || null;
+      } else if (typeof getResponse.data === "object") {
+        existingLink = getResponse.data.kampsync_ical_link || null;
+      }
     }
 
-    if (existingLink && existingLink.trim()) {
+    // If link already exists, return it
+    if (existingLink && typeof existingLink === "string" && existingLink.trim()) {
       return res.status(200).json({ ical_url: existingLink });
     }
 
+    // Otherwise create new link
     const icalId = uuidv4();
     const kampsyncLink = `https://api.kampsync.com/v1/ical/${icalId}`;
 
+    // PATCH new link into Xano
     if (XANO_API_PATCH_BASE) {
       await axios.patch(
         `${XANO_API_PATCH_BASE}?listing_id=${listing_id}`,
@@ -45,10 +51,8 @@ app.post("/generate-ical", async (req, res) => {
     return res.status(201).json({ ical_url: kampsyncLink });
 
   } catch (err) {
-    console.error("ERROR:", err.message);
-    return res
-      .status(500)
-      .json({ ical_url: `ERROR: ${err.message || "unknown error"}` });
+    console.error("SERVER ERROR:", err);
+    return res.status(500).json({ ical_url: `ERROR: ${err.message || "unknown error"}` });
   }
 });
 
