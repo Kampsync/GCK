@@ -13,7 +13,7 @@ def async_patch(payload, headers):
     try:
         requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
     except requests.RequestException:
-        pass  # fail silently in background
+        pass
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -27,16 +27,20 @@ def generate_ical_link():
         get_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
         get_response.raise_for_status()
         record = get_response.json()
+
         if isinstance(record, list):
             record = record[0] if record else {}
+
+        existing = None
         if isinstance(record, dict):
             existing = record.get("kampsync_ical_link")
-            if existing:
-                return jsonify({"ical_url": existing}), 200
-    except requests.RequestException as exc:
-        app.logger.warning("Failed to fetch listing %s from Xano: %s", listing_id, exc)
 
-    # create new link
+        if existing and isinstance(existing, str) and existing.strip():
+            return jsonify({"ical_url": existing}), 200
+
+    except requests.RequestException:
+        pass
+
     ical_id = uuid.uuid4().hex
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
@@ -45,8 +49,10 @@ def generate_ical_link():
         "kampsync_ical_link": ical_url,
     }
 
-    # do patch in background so this endpoint returns immediately
-    threading.Thread(target=async_patch, args=(payload, {"Content-Type": "application/json"})).start()
+    threading.Thread(
+        target=async_patch,
+        args=(payload, {"Content-Type": "application/json"})
+    ).start()
 
     return jsonify({"ical_url": ical_url}), 201
 
