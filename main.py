@@ -43,12 +43,12 @@ def generate_ical_link():
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
+        # PATCH payload should just be the updated fields
         patch_payload = {
-            "listing_id": listing_id,
             "kampsync_ical_link": kampsync_link
         }
 
-        patch_response = requests.post(
+        patch_response = requests.patch(
             f"{XANO_API_PATCH_BASE}{listing_id}",
             json=patch_payload,
             headers={"Content-Type": "application/json"}
