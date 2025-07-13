@@ -1,6 +1,5 @@
 import os
 import uuid
-import threading
 from flask import Flask, request, jsonify
 import requests
 
@@ -8,12 +7,6 @@ app = Flask(__name__)
 
 XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")  # e.g. https://xfxa-cldj-sxth.n7e.xano.io/api:yHTBBmYY/booking_events_1?listing_id=
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
-
-def async_patch(payload, headers):
-    try:
-        requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
-    except requests.RequestException:
-        pass  # fail silently
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -56,7 +49,12 @@ def generate_ical_link():
         "Content-Type": "application/json"
     }
 
-    threading.Thread(target=async_patch, args=(payload, headers)).start()
+    try:
+        patch_response = requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
+        patch_response.raise_for_status()
+    except requests.RequestException as exc:
+        app.logger.error("Failed to save iCal link to Xano: %s", exc)
+        return jsonify({"error": "Failed to save ical link"}), 500
 
     return jsonify({"ical_url": ical_url}), 200
 

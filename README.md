@@ -10,6 +10,8 @@ This Google Cloud Function dynamically generates iCalendar `.ics` links for list
 - Fetch listing data from Xano using listing ID
 - Generate valid `.ics` calendar files on the fly
 - Save the generated token back into the Xano listings table
+- Persisted iCal link: once generated, the link is saved in Xano and reused
+  on future requests
 
 ---
 
