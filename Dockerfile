@@ -1,11 +1,13 @@
-FROM python:3.10-slim
+# Use official Node
+FROM node:18-slim
 
 WORKDIR /app
-COPY . /app
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package*.json ./
+RUN npm install
 
-ENV PORT=8080
+COPY . .
+
 EXPOSE 8080
 
-CMD ["python", "main.py"]
+CMD ["npm", "start"]
