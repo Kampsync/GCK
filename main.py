@@ -38,23 +38,26 @@ def generate_ical_link():
         if existing and isinstance(existing, str) and existing.strip():
             return jsonify({"ical_url": existing}), 200
 
+        if existing is None or existing == "" or not existing.strip():
+            ical_id = uuid.uuid4().hex
+            ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
+
+            payload = {
+                "listing_id": listing_id,
+                "kampsync_ical_link": ical_url,
+            }
+
+            threading.Thread(
+                target=async_patch,
+                args=(payload, {"Content-Type": "application/json"})
+            ).start()
+
+            return jsonify({"ical_url": ical_url}), 201
+
+        return jsonify({"ical_url": existing}), 200
+
     except requests.RequestException:
-        pass
-
-    ical_id = uuid.uuid4().hex
-    ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
-
-    payload = {
-        "listing_id": listing_id,
-        "kampsync_ical_link": ical_url,
-    }
-
-    threading.Thread(
-        target=async_patch,
-        args=(payload, {"Content-Type": "application/json"})
-    ).start()
-
-    return jsonify({"ical_url": ical_url}), 201
+        return jsonify({"error": "Failed to retrieve listing info."}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
