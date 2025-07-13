@@ -29,14 +29,17 @@ def generate_ical_link():
     try:
         get_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
         get_response.raise_for_status()
-        listing_data = get_response.json()
-        existing_link = listing_data.get("kampsync_ical_link")
-        if existing_link:
-            return jsonify({"ical_url": existing_link}), 200
+        records = get_response.json()
+        
+        if isinstance(records, list):
+            for record in records:
+                existing_link = record.get("kampsync_ical_link")
+                if existing_link:
+                    return jsonify({"ical_url": existing_link}), 200
     except requests.RequestException:
         pass  # if GET fails, continue to create new
 
-    # Create new if not exists
+    # Create new if no existing link found anywhere
     ical_id = uuid.uuid4().hex
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
