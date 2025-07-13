@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")   # your booking_events_1 static URL
+XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")   # e.g. https://xano/api:booking_events_1
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")  # same style
 
 @app.route("/generate-ical", methods=["POST"])
@@ -19,9 +19,10 @@ def generate_ical_link():
     try:
         existing_link = None
 
-        # Only attempt GET if ENV is set
+        # GET with ?listing_id= param
         if XANO_API_GET_BASE:
-            get_response = requests.get(XANO_API_GET_BASE)
+            get_url = f"{XANO_API_GET_BASE}?listing_id={listing_id}"
+            get_response = requests.get(get_url)
             get_response.raise_for_status()
             record = get_response.json()
             if isinstance(record, list):
@@ -36,14 +37,12 @@ def generate_ical_link():
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        # PATCH it to static endpoint
+        # PATCH with ?listing_id= param
         if XANO_API_PATCH_BASE:
-            patch_payload = {
-                "listing_id": listing_id,
-                "kampsync_ical_link": kampsync_link
-            }
+            patch_url = f"{XANO_API_PATCH_BASE}?listing_id={listing_id}"
+            patch_payload = {"kampsync_ical_link": kampsync_link}
             requests.patch(
-                XANO_API_PATCH_BASE,
+                patch_url,
                 json=patch_payload,
                 headers={"Content-Type": "application/json"}
             )
