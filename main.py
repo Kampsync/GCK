@@ -17,6 +17,7 @@ def generate_ical_link():
     listing_id = data["listing_id"]
 
     try:
+        # Get the record from Xano
         get_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
         get_response.raise_for_status()
         record = get_response.json()
@@ -24,17 +25,26 @@ def generate_ical_link():
         if isinstance(record, list):
             record = record[0] if record else {}
 
-        existing = record.get("kampsync_ical_link") if isinstance(record, dict) else None
+        if not isinstance(record, dict):
+            return jsonify({"error": "Invalid record format"}), 500
 
-        if existing and isinstance(existing, str) and existing.strip():
-            return jsonify({"ical_url": existing}), 200
+        existing_link = record.get("kampsync_ical_link")
+        render_link = record.get("ical_data_render")
 
+        if not render_link or not render_link.strip():
+            return jsonify({"error": "No Render link found in Xano"}), 400
+
+        # If already exists, just return it
+        if existing_link and isinstance(existing_link, str) and existing_link.strip():
+            return jsonify({"ical_url": existing_link}), 200
+
+        # Otherwise create a new pretty KampSync link
         ical_id = uuid.uuid4().hex
-        ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
+        kampsync_link = f"https://calendar.kampsync.com/listings/{ical_id}.ics"
 
         patch_payload = {
             "listing_id": listing_id,
-            "kampsync_ical_link": ical_url
+            "kampsync_ical_link": kampsync_link
         }
 
         patch_response = requests.post(
@@ -44,13 +54,7 @@ def generate_ical_link():
         )
         patch_response.raise_for_status()
 
-        # Fetch again to verify it saved
-        verify_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
-        verify_response.raise_for_status()
-        updated_record = verify_response.json()
-        saved_url = updated_record.get("kampsync_ical_link") if isinstance(updated_record, dict) else ical_url
-
-        return jsonify({"ical_url": saved_url}), 201
+        return jsonify({"ical_url": kampsync_link, "backing_render_link": render_link}), 201
 
     except requests.RequestException as e:
         return jsonify({"error": f"Failed to process listing: {str(e)}"}), 500
