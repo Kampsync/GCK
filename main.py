@@ -5,8 +5,9 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")   # e.g. https://xano/api:booking_events_1
+XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")    # e.g. https://xano/api:booking_events_1
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")  # e.g. https://xano/api:booking_events_1
+XANO_API_PATCH_LISTING = os.environ.get("XANO_API_PATCH_LISTING")  # new: PATCH endpoint for Listings table
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -37,7 +38,7 @@ def generate_ical_link():
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        # PATCH sends listing_id in JSON body
+        # PATCH booking_events_1 (old)
         if XANO_API_PATCH_BASE:
             patch_payload = {
                 "listing_id": listing_id,
@@ -49,6 +50,17 @@ def generate_ical_link():
                 headers={"Content-Type": "application/json"}
             )
 
+        # NEW: PATCH Listings table directly
+        if XANO_API_PATCH_LISTING:
+            patch_listing_url = f"{XANO_API_PATCH_LISTING}?listing_id={listing_id}"
+            patch_listing_payload = {"kampsync_ical_link": kampsync_link}
+            requests.patch(
+                patch_listing_url,
+                json=patch_listing_payload,
+                headers={"Content-Type": "application/json"}
+            )
+
+        # Return final link so Xano gets it
         return jsonify({"ical_url": kampsync_link}), 201
 
     except Exception as e:
