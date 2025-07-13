@@ -24,9 +24,7 @@ def generate_ical_link():
         if isinstance(record, list):
             record = record[0] if record else {}
 
-        existing = None
-        if isinstance(record, dict):
-            existing = record.get("kampsync_ical_link")
+        existing = record.get("kampsync_ical_link") if isinstance(record, dict) else None
 
         if existing and isinstance(existing, str) and existing.strip():
             return jsonify({"ical_url": existing}), 200
@@ -34,22 +32,28 @@ def generate_ical_link():
         ical_id = uuid.uuid4().hex
         ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        payload = {
+        patch_payload = {
             "listing_id": listing_id,
             "kampsync_ical_link": ical_url
         }
 
         patch_response = requests.post(
-            XANO_API_PATCH_BASE,
-            json=payload,
+            f"{XANO_API_PATCH_BASE}{listing_id}",
+            json=patch_payload,
             headers={"Content-Type": "application/json"}
         )
         patch_response.raise_for_status()
 
-        return jsonify({"ical_url": ical_url}), 201
+        # Fetch again to verify it saved
+        verify_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
+        verify_response.raise_for_status()
+        updated_record = verify_response.json()
+        saved_url = updated_record.get("kampsync_ical_link") if isinstance(updated_record, dict) else ical_url
 
-    except requests.RequestException:
-        return jsonify({"error": "Failed to process listing."}), 500
+        return jsonify({"ical_url": saved_url}), 201
+
+    except requests.RequestException as e:
+        return jsonify({"error": f"Failed to process listing: {str(e)}"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
