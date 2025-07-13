@@ -1,5 +1,6 @@
 import os
 import uuid
+import threading
 from flask import Flask, request, jsonify
 import requests
 
@@ -7,6 +8,12 @@ app = Flask(__name__)
 
 XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")
 XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+
+def async_patch(payload, headers):
+    try:
+        requests.post(XANO_API_PATCH_BASE, json=payload, headers=headers)
+    except requests.RequestException:
+        pass  # fail silently in background
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -29,6 +36,7 @@ def generate_ical_link():
     except requests.RequestException as exc:
         app.logger.warning("Failed to fetch listing %s from Xano: %s", listing_id, exc)
 
+    # create new link
     ical_id = uuid.uuid4().hex
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
@@ -37,12 +45,8 @@ def generate_ical_link():
         "kampsync_ical_link": ical_url,
     }
 
-    try:
-        patch_response = requests.post(XANO_API_PATCH_BASE, json=payload)
-        patch_response.raise_for_status()
-    except requests.RequestException as exc:
-        app.logger.error("Failed to save iCal link to Xano: %s", exc)
-        return jsonify({"error": "Failed to save ical link"}), 500
+    # do patch in background so this endpoint returns immediately
+    threading.Thread(target=async_patch, args=(payload, {"Content-Type": "application/json"})).start()
 
     return jsonify({"ical_url": ical_url}), 201
 
