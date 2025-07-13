@@ -5,8 +5,8 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")
-XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")
+XANO_API_GET_BASE = os.environ.get("XANO_API_GET_BASE")   # your booking_events_1 static URL
+XANO_API_PATCH_BASE = os.environ.get("XANO_API_PATCH_BASE")  # same style
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
@@ -21,8 +21,7 @@ def generate_ical_link():
 
         # Only attempt GET if ENV is set
         if XANO_API_GET_BASE:
-            get_url = f"{XANO_API_GET_BASE}{listing_id}"
-            get_response = requests.get(get_url)
+            get_response = requests.get(XANO_API_GET_BASE)
             get_response.raise_for_status()
             record = get_response.json()
             if isinstance(record, list):
@@ -37,21 +36,21 @@ def generate_ical_link():
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        # PATCH it if ENV is set
+        # PATCH it to static endpoint
         if XANO_API_PATCH_BASE:
-            patch_url = f"{XANO_API_PATCH_BASE}{listing_id}"
-            patch_payload = {"kampsync_ical_link": kampsync_link}
+            patch_payload = {
+                "listing_id": listing_id,
+                "kampsync_ical_link": kampsync_link
+            }
             requests.patch(
-                patch_url,
+                XANO_API_PATCH_BASE,
                 json=patch_payload,
                 headers={"Content-Type": "application/json"}
             )
 
-        # Always return the new link
         return jsonify({"ical_url": kampsync_link}), 201
 
     except Exception as e:
-        # Always return something so Xano doesn't break
         return jsonify({"ical_url": f"ERROR: {str(e)}"}), 500
 
 if __name__ == "__main__":
