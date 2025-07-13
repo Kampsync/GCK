@@ -18,6 +18,7 @@ def generate_ical_link():
         return jsonify({"error": "Missing 'listing_id' in request body"}), 400
 
     listing_id = str(data["listing_id"])
+    print("DEBUG listing_id:", listing_id)
 
     try:
         # GET the listing record
