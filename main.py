@@ -17,29 +17,34 @@ def async_patch(payload, headers):
 
 @app.route("/generate-ical", methods=["POST"])
 def generate_ical_link():
-    # Accept either JSON or form data from Xano
     data = request.get_json(silent=True) or request.form
-
     if not data or "listing_id" not in data:
         return jsonify({"error": "Missing 'listing_id' in request body"}), 400
 
     listing_id = data["listing_id"]
 
-    # Check Xano if this listing already has a kampsync_ical_link
+    # Check Xano if there is already a kampsync_ical_link
     try:
         get_response = requests.get(f"{XANO_API_GET_BASE}{listing_id}")
         get_response.raise_for_status()
         records = get_response.json()
-        
+
+        # If it's a list, scan each item
         if isinstance(records, list):
             for record in records:
                 existing_link = record.get("kampsync_ical_link")
                 if existing_link:
                     return jsonify({"ical_url": existing_link}), 200
-    except requests.RequestException:
-        pass  # if GET fails, continue to create new
+        # If it's a dict (single object)
+        elif isinstance(records, dict):
+            existing_link = records.get("kampsync_ical_link")
+            if existing_link:
+                return jsonify({"ical_url": existing_link}), 200
 
-    # Create new if no existing link found anywhere
+    except requests.RequestException:
+        pass  # If GET fails, just proceed to create a new one
+
+    # If nothing found, create new link
     ical_id = uuid.uuid4().hex
     ical_url = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
@@ -47,7 +52,6 @@ def generate_ical_link():
         "listing_id": listing_id,
         "kampsync_ical_link": ical_url
     }
-
     headers = {
         "Content-Type": "application/json"
     }
