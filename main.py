@@ -17,35 +17,41 @@ def generate_ical_link():
     listing_id = str(data["listing_id"])
 
     try:
-        # GET the listing record
-        get_url = f"{XANO_API_GET_BASE}{listing_id}"
-        get_response = requests.get(get_url)
-        get_response.raise_for_status()
-        record = get_response.json()
-        if isinstance(record, list):
-            record = record[0] if record else {}
+        existing_link = None
+
+        # Only attempt GET if ENV is set
+        if XANO_API_GET_BASE:
+            get_url = f"{XANO_API_GET_BASE}{listing_id}"
+            get_response = requests.get(get_url)
+            get_response.raise_for_status()
+            record = get_response.json()
+            if isinstance(record, list):
+                record = record[0] if record else {}
+            existing_link = record.get("kampsync_ical_link")
 
         # If it already has a link, return it
-        existing_link = record.get("kampsync_ical_link")
         if existing_link and isinstance(existing_link, str) and existing_link.strip():
             return jsonify({"ical_url": existing_link}), 200
 
-        # Otherwise, create a new permanent link and patch it
+        # Otherwise, create a new permanent link
         ical_id = uuid.uuid4().hex
         kampsync_link = f"https://api.kampsync.com/v1/ical/{ical_id}"
 
-        patch_url = f"{XANO_API_PATCH_BASE}{listing_id}"
-        patch_payload = {"kampsync_ical_link": kampsync_link}
-        requests.patch(
-            patch_url,
-            json=patch_payload,
-            headers={"Content-Type": "application/json"}
-        )
+        # PATCH it if ENV is set
+        if XANO_API_PATCH_BASE:
+            patch_url = f"{XANO_API_PATCH_BASE}{listing_id}"
+            patch_payload = {"kampsync_ical_link": kampsync_link}
+            requests.patch(
+                patch_url,
+                json=patch_payload,
+                headers={"Content-Type": "application/json"}
+            )
 
+        # Always return the new link
         return jsonify({"ical_url": kampsync_link}), 201
 
     except Exception as e:
-        # Always return some kind of ical_url key so Xano never breaks
+        # Always return something so Xano doesn't break
         return jsonify({"ical_url": f"ERROR: {str(e)}"}), 500
 
 if __name__ == "__main__":
