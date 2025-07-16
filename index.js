@@ -8,11 +8,11 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const RENDER_CALENDAR_BASE = process.env.RENDER_CALENDAR_BASE; // must end with /
+const PORT = process.env.PORT;
+const RENDER_CALENDAR_BASE = process.env.RENDER_CALENDAR_BASE;
 const XANO_SAVE_API = process.env.XANO_SAVE_API;
 
-const tokenMap = {}; // Replace with database later
+const tokenMap = {};
 
 app.post("/generate-link", async (req, res) => {
   const { listing_id } = req.body;
