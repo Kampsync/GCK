@@ -1,62 +1,55 @@
 import express from "express";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-const XANO_API_GET_BASE = process.env.XANO_API_GET_BASE;
-const XANO_API_PATCH_BASE = process.env.XANO_API_PATCH_BASE;
+const PORT = process.env.PORT || 3000;
+const RENDER_CALENDAR_BASE = process.env.RENDER_CALENDAR_BASE; // must end with /
+const XANO_SAVE_API = process.env.XANO_SAVE_API;
 
-app.post("/generate-ical", async (req, res) => {
-  const listing_id = req.query.listing_id;
+const tokenMap = {}; // Replace with database later
 
-  if (!listing_id) {
-    return res.status(400).json({ ical_url: "ERROR: Missing 'listing_id'" });
-  }
+app.post("/generate-link", async (req, res) => {
+  const { listing_id } = req.body;
+  if (!listing_id) return res.status(400).json({ error: "Missing listing_id" });
+
+  const token = uuidv4().replace(/-/g, "").slice(0, 10);
+  const ical_url = `https://api.kampsync.com/v1/ical/${token}.ics`;
+  tokenMap[token] = listing_id;
 
   try {
-    let existingLink = null;
-
-    // GET existing kampsync_ical_link from Xano
-    if (XANO_API_GET_BASE) {
-      const getUrl = `${XANO_API_GET_BASE}?listing_id=${listing_id}`;
-      const getResponse = await axios.get(getUrl);
-
-      if (Array.isArray(getResponse.data)) {
-        existingLink = getResponse.data[0]?.kampsync_ical_link || null;
-      } else if (typeof getResponse.data === "object") {
-        existingLink = getResponse.data.kampsync_ical_link || null;
-      }
-    }
-
-    // If link already exists, return it
-    if (existingLink && typeof existingLink === "string" && existingLink.trim()) {
-      return res.status(200).json({ ical_url: existingLink });
-    }
-
-    // Otherwise create new link
-    const icalId = uuidv4();
-    const kampsyncLink = `https://api.kampsync.com/v1/ical/${icalId}`;
-
-    // PATCH new link into Xano
-    if (XANO_API_PATCH_BASE) {
-      await axios.patch(
-        `${XANO_API_PATCH_BASE}?listing_id=${listing_id}`,
-        { kampsync_ical_link: kampsyncLink },
-        { headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    return res.status(201).json({ ical_url: kampsyncLink });
-
+    await axios.post(XANO_SAVE_API, {
+      listing_id,
+      kampsync_ical_link: ical_url
+    });
   } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).json({ ical_url: `ERROR: ${err.message || "unknown error"}` });
+    console.error("Xano save failed:", err.message);
+    return res.status(500).json({ error: "Failed to save iCal to Xano" });
+  }
+
+  res.json({ ical_url });
+});
+
+app.get("/v1/ical/:token.ics", async (req, res) => {
+  const token = req.params.token;
+  const listing_id = tokenMap[token];
+  if (!listing_id) return res.status(404).send("Invalid iCal token");
+
+  const url = `${RENDER_CALENDAR_BASE}${listing_id}.ics`;
+
+  try {
+    const response = await axios.get(url);
+    res.set("Content-Type", "text/calendar");
+    res.send(response.data);
+  } catch (err) {
+    console.error("Calendar fetch failed:", err.message);
+    res.status(502).send("Failed to fetch calendar");
   }
 });
 
-const port = process.env.PORT || 8080;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+app.listen(PORT, () => console.log(`iCal server running on port ${PORT}`));
