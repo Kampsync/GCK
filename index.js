@@ -14,6 +14,10 @@ const XANO_SAVE_API = process.env.XANO_SAVE_API;
 
 const tokenMap = {};
 
+app.get("/", (req, res) => {
+  res.send("KampSync iCal Service is live");
+});
+
 app.post("/generate-link", async (req, res) => {
   const { listing_id } = req.body;
   if (!listing_id) return res.status(400).json({ error: "Missing listing_id" });
