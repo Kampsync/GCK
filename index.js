@@ -56,6 +56,7 @@ app.get("/v1/ical/:token.ics", async (req, res) => {
   if (!listing_id) return res.status(404).send("Invalid token");
 
   const url = `${RENDER_CALENDAR_BASE}${listing_id}.ics`;
+  console.log("📡 Fetching from Render calendar URL:", url);  // 👈 added this log
 
   try {
     const response = await axios.get(url);
@@ -66,6 +67,5 @@ app.get("/v1/ical/:token.ics", async (req, res) => {
     res.status(502).send("Failed to fetch calendar");
   }
 });
-
 
 app.listen(PORT, () => console.log(`iCal server running on port ${PORT}`));
