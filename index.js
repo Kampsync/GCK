@@ -8,10 +8,11 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
+
 const RENDER_CALENDAR_BASE = process.env.RENDER_CALENDAR_BASE;
-const XANO_SAVE_API = process.env.XANO_SAVE_API;              // for saving the token
-const XANO_TOKEN_LOOKUP_API = process.env.XANO_TOKEN_LOOKUP_API;  // GET token => listing_id
+const XANO_SAVE_API = process.env.XANO_SAVE_API;
+const XANO_TOKEN_LOOKUP_API = process.env.XANO_TOKEN_LOOKUP_API;
 
 app.get("/", (req, res) => {
   res.send("KampSync iCal Service is live");
@@ -65,5 +66,6 @@ app.get("/v1/ical/:token.ics", async (req, res) => {
     res.status(502).send("Failed to fetch calendar");
   }
 });
+
 
 app.listen(PORT, () => console.log(`iCal server running on port ${PORT}`));
