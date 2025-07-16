@@ -24,7 +24,7 @@ app.post("/generate-link", async (req, res) => {
   if (!listing_id) return res.status(400).json({ error: "Missing listing_id" });
 
   const token = uuidv4().replace(/-/g, "").slice(0, 10);
-  const ical_url = `https://api.kampsync.com/v1/ical/${token}.ics`;
+  const ical_url = `https://api.kampsync.com/v1/ical/${token}`; // 🔥 removed `.ics`
 
   try {
     await axios.post(XANO_SAVE_API, {
@@ -41,7 +41,7 @@ app.post("/generate-link", async (req, res) => {
 });
 
 // STEP 2: Serve iCal based on token → lookup listing_id → fetch Render link
-app.get("/v1/ical/:token.ics", async (req, res) => {
+app.get("/v1/ical/:token", async (req, res) => { // 🔥 removed `.ics` from route
   const token = req.params.token;
 
   let listing_id;
@@ -55,8 +55,8 @@ app.get("/v1/ical/:token.ics", async (req, res) => {
 
   if (!listing_id) return res.status(404).send("Invalid token");
 
-  const url = `${RENDER_CALENDAR_BASE}${listing_id}.ics`;
-  console.log("📡 Fetching from Render calendar URL:", url);  // 👈 added this log
+  const url = `${RENDER_CALENDAR_BASE}${listing_id}`; // 🔥 removed `.ics` here too
+  console.log("📡 Fetching from Render calendar URL:", url);
 
   try {
     const response = await axios.get(url);
