@@ -8,7 +8,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT;
+const PORT = 8080;
 const RENDER_CALENDAR_BASE = process.env.RENDER_CALENDAR_BASE;
 const XANO_SAVE_API = process.env.XANO_SAVE_API;
 
